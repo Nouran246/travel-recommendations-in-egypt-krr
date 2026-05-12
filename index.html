@@ -1,23 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet"/>
-    <link rel="stylesheet" href="travel.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discover Egypt — AI Travel Advisor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="travel.css">
 </head>
 <body>
-    <header>
+
+<header>
   <div class="logo">
     <span class="logo-eyebrow">AI-Powered Travel</span>
     <h1 class="logo-title">Discover <em>Egypt</em></h1>
   </div>
   <span class="header-deco">Your personal travel advisor</span>
 </header>
- 
+
 <div class="container">
- 
+
   <!-- MODE SELECTOR -->
   <div class="mode-section">
     <div class="mode-label">Choose your journey</div>
@@ -28,16 +29,649 @@
       <button class="mode-tab" data-mode="4">Budget Explorer</button>
     </div>
   </div>
- 
+
   <div class="divider"></div>
- 
+
   <!-- FORMS -->
   <div id="form-area"></div>
- 
+
   <!-- RESULTS -->
   <div id="results"></div>
- 
+
 </div>
 
+<script>
+// ──────────────────────────────────────────────
+// KNOWLEDGE BASE
+// ──────────────────────────────────────────────
+const destinations = [
+  "cairo","giza","alexandria","luxor","aswan",
+  "sharm_el_sheikh","hurghada","siwa","dahab",
+  "marsa_matruh","fayoum","saqqara","edfu",
+  "saint_catherine","white_desert","minya","ismailia"
+];
+
+const budgetLevel = {
+  cairo:"high", giza:"high", alexandria:"medium", luxor:"medium", aswan:"medium",
+  sharm_el_sheikh:"high", hurghada:"high", siwa:"low", dahab:"low",
+  marsa_matruh:"medium", fayoum:"low", saqqara:"low", edfu:"low",
+  saint_catherine:"low", white_desert:"low", minya:"low", ismailia:"medium"
+};
+
+const climate = {
+  cairo:"hot_dry", giza:"hot_dry", alexandria:"mediterranean", luxor:"very_hot_dry",
+  aswan:"very_hot_dry", sharm_el_sheikh:"desert_hot", hurghada:"desert_hot",
+  siwa:"desert_extreme", dahab:"desert_hot", marsa_matruh:"mediterranean",
+  fayoum:"desert_moderate", saqqara:"hot_dry", edfu:"very_hot_dry",
+  saint_catherine:"desert_hot", white_desert:"desert_extreme", minya:"hot_dry",
+  ismailia:"hot_dry"
+};
+
+const heatLevel = {
+  cairo:"moderate", giza:"moderate", alexandria:"low", luxor:"extreme",
+  aswan:"extreme", sharm_el_sheikh:"high", hurghada:"high", siwa:"extreme",
+  dahab:"high", marsa_matruh:"low", fayoum:"high", saqqara:"moderate",
+  edfu:"extreme", saint_catherine:"high", white_desert:"extreme", minya:"moderate",
+  ismailia:"moderate"
+};
+
+const hasBeach = new Set([
+  "alexandria","sharm_el_sheikh","hurghada","dahab","marsa_matruh","ismailia"
+]);
+
+const bestMonths = {
+  cairo:[10,11,12,1,2,3,4], giza:[10,11,12,1,2,3,4],
+  alexandria:[3,4,5,6,9,10,11], luxor:[11,12,1,2], aswan:[11,12,1,2],
+  sharm_el_sheikh:[10,11,12,1,2,3,4,5], hurghada:[10,11,12,1,2,3,4,5],
+  siwa:[10,11,12,1,2,3,4], dahab:[10,11,12,1,2,3,4,5],
+  marsa_matruh:[6,7,8,9], fayoum:[10,11,12,1,2,3,4],
+  saqqara:[10,11,12,1,2,3,4], edfu:[11,12,1,2],
+  saint_catherine:[3,4,5,9,10,11], white_desert:[10,11,12,1,2,3],
+  minya:[10,11,12,1,2,3,4], ismailia:[3,4,5,6,9,10,11]
+};
+
+const tripTypes = {
+  cairo:["historical","cultural","urban"], giza:["historical","archaeological"],
+  alexandria:["historical","coastal","cultural"], luxor:["historical","archaeological"],
+  aswan:["historical","relaxation"], sharm_el_sheikh:["beach","diving","nightlife"],
+  hurghada:["beach","diving","family"], siwa:["adventure","cultural","relaxation"],
+  dahab:["adventure","diving","backpacking"], marsa_matruh:["beach","relaxation"],
+  fayoum:["adventure","nature"], saqqara:["historical","archaeological"],
+  edfu:["historical","archaeological"], saint_catherine:["adventure","historical","nature"],
+  white_desert:["adventure","nature"], minya:["historical","archaeological","cultural"],
+  ismailia:["relaxation","nature","cultural"]
+};
+
+const attractions = {
+  cairo:["Egyptian Museum — Tahrir Square","Khan El Khalili Bazaar","Coptic Cairo","Saladin Citadel","Muhammad Ali Mosque","Al-Azhar Mosque","Al-Muizz Street","Cairo Tower","Al-Azhar Park","Museum of Islamic Art"],
+  giza:["Great Pyramid of Khufu","Pyramid of Khafre","Pyramid of Menkaure","Great Sphinx","Grand Egyptian Museum","Solar Boat Museum","Sound and Light Show at the Pyramids"],
+  alexandria:["Bibliotheca Alexandrina","Citadel of Qaitbay","Catacombs of Kom El Shoqafa","Montaza Palace and Gardens","Alexandria National Museum","Roman Theatre at Kom El Dikka","Pompey's Pillar","Alexandria Corniche"],
+  luxor:["Karnak Temple Complex","Luxor Temple","Valley of the Kings","Temple of Hatshepsut at Deir el-Bahari","Valley of the Queens","Colossi of Memnon","Medinet Habu","Luxor Museum","Tombs of the Nobles","Ramesseum"],
+  aswan:["Philae Temple","Aswan High Dam","Unfinished Obelisk","Nubian Museum","Elephantine Island","Felucca rides on the Nile","Abu Simbel","Kom Ombo Temple"],
+  sharm_el_sheikh:["Ras Mohammed National Park","Naama Bay","Shark's Bay Beach","Tiran Island","Soho Square"],
+  hurghada:["Giftun Island","Old Town Hurghada — El Dahar","Hurghada Museum","Orange Bay Island","Mahmya Island"],
+  siwa:["Oracle Temple of Amun","Cleopatra's Pool","Shali Fortress","Gebel al-Mawta — Mountain of the Dead","Great Sand Sea","Fatnas Island"],
+  dahab:["Blue Hole","Three Pools","The Canyon","Blue Lagoon","Eel Garden"],
+  marsa_matruh:["Cleopatra Beach","Rommel Beach","Agiba Beach","Rommel's Cave Museum"],
+  fayoum:["Wadi El Rayan","Lake Qarun","Valley of the Whales / Wadi Al-Hitan","Fayoum Waterwheels","Karanis — Kom Aushim"],
+  saqqara:["Step Pyramid of Djoser","Pyramid of Unas","Serapeum","Mastaba of Ti","Mastaba of Mereruka","Imhotep Museum","Memphis / Mit Rahina ruins"],
+  edfu:["Temple of Horus at Edfu"],
+  saint_catherine:["Saint Catherine's Monastery","Mount Sinai / Jebel Musa","The Burning Bush","Monastery icon and manuscript collection","Colored Canyon"],
+  white_desert:["White Desert National Park","Black Desert","Crystal Mountain","Agabat Valley","Bahariya Oasis"],
+  minya:["Beni Hasan tombs","Tell el-Amarna","Tuna el-Gebel","Hermopolis / Ashmunein","Speos Artemidos"],
+  ismailia:["Lake Timsah corniche and beach","Ismailia Museum","Ferdinand de Lesseps House","Sweetwater Canal promenade","George's Restaurant"]
+};
+
+const packingRules = {
+  very_hot_dry:["water bottle","sunscreen","hat","sunglasses"],
+  desert_extreme:["water bottle","sunscreen","hat","sunglasses","backpack"],
+  desert_hot:["water bottle","sunscreen","hat","sunglasses"],
+  mediterranean:["light jacket","swimsuit"],
+  hot_dry:["water bottle","sunscreen","hat","light clothing"],
+  desert_moderate:["sunscreen","light clothing"],
+  historical:["comfortable walking shoes"],
+  archaeological:["flashlight","comfortable walking shoes"],
+  beach:["swimsuit","flip flops","beach towel"],
+  diving:["diving mask","underwater camera","swimsuit"],
+  cultural:["modest clothing","scarf"],
+  adventure:["hiking shoes","backpack"]
+};
+
+const compatiblePairs = {
+  cairo:["giza","saqqara","fayoum","alexandria","ismailia"],
+  giza:["cairo","saqqara","fayoum"], saqqara:["giza","cairo"],
+  luxor:["aswan","edfu","minya"], aswan:["luxor","edfu"], edfu:["luxor","aswan"],
+  sharm_el_sheikh:["dahab","saint_catherine"],
+  dahab:["sharm_el_sheikh","saint_catherine"],
+  saint_catherine:["dahab","sharm_el_sheikh"],
+  hurghada:["marsa_matruh"], marsa_matruh:["hurghada","alexandria"],
+  siwa:["white_desert"], white_desert:["siwa","fayoum"],
+  minya:["cairo","luxor"], ismailia:["cairo","alexandria"],
+  fayoum:["cairo","giza","white_desert"], alexandria:["cairo","marsa_matruh","ismailia"]
+};
+
+const daysNeeded = {
+  cairo:3, giza:1, alexandria:2, luxor:3, aswan:2,
+  sharm_el_sheikh:3, hurghada:3, siwa:2, dahab:2,
+  marsa_matruh:2, fayoum:1, saqqara:1, edfu:1,
+  saint_catherine:1, white_desert:2, minya:2, ismailia:1
+};
+
+// ──────────────────────────────────────────────
+// HELPERS
+// ──────────────────────────────────────────────
+const heatOrder   = {low:1, moderate:2, high:3, extreme:4};
+const budgetOrder = {low:1, medium:2, high:3};
+
+const allTripTypes = [...new Set(Object.values(tripTypes).flat())].sort();
+
+function toTitle(s) {
+  return s.replace(/_/g," ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function getPacking(dest) {
+  const items = new Set();
+  const cl = climate[dest];
+  if (cl && packingRules[cl]) packingRules[cl].forEach(i => items.add(i));
+  (tripTypes[dest]||[]).forEach(t => {
+    if (packingRules[t]) packingRules[t].forEach(i => items.add(i));
+  });
+  return [...items];
+}
+
+// ──────────────────────────────────────────────
+// BACKWARD CHAINING
+// ──────────────────────────────────────────────
+function checkBudget(dest, prefs) {
+  if (prefs.budget === "no preference") return true;
+  return (budgetOrder[prefs.budget]||0) >= (budgetOrder[budgetLevel[dest]]||99);
+}
+function checkSeason(dest, prefs) {
+  if (!prefs.monthNum) return true;
+  return (bestMonths[dest]||[]).includes(prefs.monthNum);
+}
+function checkHeat(dest, prefs) {
+  if (prefs.heatTolerance === "no preference") return true;
+  return (heatOrder[prefs.heatTolerance]||0) >= (heatOrder[heatLevel[dest]]||99);
+}
+function checkBeach(dest, prefs) {
+  if (prefs.wantsBeach === "no preference") return true;
+  return prefs.wantsBeach === "yes" ? hasBeach.has(dest) : !hasBeach.has(dest);
+}
+function checkTripType(dest, prefs) {
+  if (prefs.tripType === "no preference") return true;
+  return (tripTypes[dest]||[]).includes(prefs.tripType);
+}
+
+function backwardChain(dest, prefs) {
+  const log = [];
+  log.push(`GOAL: recommend(${dest})`);
+  log.push(`  trying rule [recommend_destination]: IF affordable AND good_timing AND heat_tolerable AND beach_ok AND right_trip_type THEN recommend`);
+
+  const subRules = [
+    { name:"budget_match",   conclusion:"affordable",      check: () => checkBudget(dest, prefs),   prim:"budget"    },
+    { name:"season_match",   conclusion:"good_timing",     check: () => checkSeason(dest, prefs),   prim:"season"    },
+    { name:"heat_match",     conclusion:"heat_tolerable",  check: () => checkHeat(dest, prefs),     prim:"heat"      },
+    { name:"beach_match",    conclusion:"beach_ok",        check: () => checkBeach(dest, prefs),    prim:"beach"     },
+    { name:"triptype_match", conclusion:"right_trip_type", check: () => checkTripType(dest, prefs), prim:"trip_type" },
+  ];
+
+  const derived = {};
+  for (const rule of subRules) {
+    const result = rule.check();
+    derived[rule.conclusion] = result;
+    const m = result ? "V" : "X";
+    log.push(`    [${m}] rule [${rule.name}] -> ${rule.conclusion}`);
+    log.push(`          [${m}] ${rule.prim} (checked against KB)`);
+  }
+
+  const allPassed = Object.values(derived).every(Boolean);
+  if (allPassed) {
+    log.push(`  => rule [recommend_destination] FIRED -> recommend(${dest}) = TRUE`);
+  } else {
+    const failed = Object.entries(derived).filter(([,v])=>!v).map(([k])=>k);
+    log.push(`  => rule [recommend_destination] NOT fired, failed: [${failed.join(", ")}]`);
+  }
+
+  const flatChecks = {
+    budget:    derived["affordable"]      || false,
+    season:    derived["good_timing"]     || false,
+    heat:      derived["heat_tolerable"]  || false,
+    beach:     derived["beach_ok"]        || false,
+    trip_type: derived["right_trip_type"] || false,
+  };
+
+  return { passed: allPassed, checks: flatChecks, log };
+}
+
+// ──────────────────────────────────────────────
+// MODES
+// ──────────────────────────────────────────────
+function mode1(prefs) {
+  const perfect = [], close = [];
+  const treeLog = [];
+
+  for (const dest of destinations) {
+    const { passed, checks, log } = backwardChain(dest, prefs);
+    treeLog.push(...log, "");
+    const failCount = Object.values(checks).filter(v => !v).length;
+    const entry = { city: dest, checks, failCount, failedRules: Object.entries(checks).filter(([,v])=>!v).map(([k])=>k), attractions: attractions[dest]||[], pack: getPacking(dest) };
+    if (passed) perfect.push(entry);
+    else if (failCount <= 2) close.push(entry);
+  }
+  close.sort((a,b) => a.failCount - b.failCount);
+
+  if (perfect.length) return { results: perfect, treeLog, matchType: "perfect" };
+  if (close.length)   return { results: close, treeLog, matchType: `closest (max ${close[0].failCount} failure${close[0].failCount>1?"s":""})` };
+  return { results: [], treeLog, matchType: "none" };
+}
+
+function mode2(cityList, prefs) {
+  const results = [], treeLog = [];
+  for (const dest of cityList) {
+    if (!destinations.includes(dest)) {
+      results.push({ city: dest, valid: false, error: "city not in knowledge base", status: "NOT IN KB" });
+      continue;
+    }
+    const { passed, checks, log } = backwardChain(dest, prefs);
+    treeLog.push(...log, "");
+    const failCount = Object.values(checks).filter(v=>!v).length;
+    const failedRules = Object.entries(checks).filter(([,v])=>!v).map(([k])=>k);
+    const entry = { city: dest, valid: passed, checks, failCount, failedRules };
+    if (passed || failCount <= 2) {
+      entry.attractions = attractions[dest]||[];
+      entry.pack = getPacking(dest);
+      entry.status = passed ? "PERFECT MATCH" : `CLOSE MATCH (${failCount} failure${failCount>1?"s":""})`;
+    } else {
+      entry.status = `NOT RECOMMENDED (${failCount} failures)`;
+    }
+    results.push(entry);
+  }
+  return { results, treeLog };
+}
+
+function mode3(prefs, totalDays) {
+  const candidates = [];
+  const treeLog = [];
+  for (const dest of destinations) {
+    const { passed, checks, log } = backwardChain(dest, prefs);
+    treeLog.push(...log, "");
+    const failCount = Object.values(checks).filter(v=>!v).length;
+    if (passed || failCount <= 2) candidates.push(dest);
+  }
+
+  if (!candidates.length) return { schedule: [], error: "No cities matched your preferences (or close enough) for an itinerary.", treeLog };
+
+  const itinerary = [];
+  let daysUsed = 0;
+  const used = new Set();
+  const sorted = [...candidates].sort((a,b) => (daysNeeded[a]||2) - (daysNeeded[b]||2));
+
+  for (const city of sorted) {
+    if (used.has(city)) continue;
+    const needed = daysNeeded[city]||2;
+    if (daysUsed + needed > totalDays) continue;
+    itinerary.push(city); used.add(city); daysUsed += needed;
+    for (const nb of (compatiblePairs[city]||[])) {
+      if (used.has(nb) || !candidates.includes(nb)) continue;
+      const nd = daysNeeded[nb]||2;
+      if (daysUsed + nd > totalDays) continue;
+      itinerary.push(nb); used.add(nb); daysUsed += nd;
+    }
+  }
+
+  let day = 1;
+  const schedule = itinerary.map(city => {
+    const n = daysNeeded[city]||2;
+    const item = { city, dayRange: n===1 ? `Day ${day}` : `Day ${day} – ${day+n-1}`, attractions: attractions[city]||[], pack: getPacking(city) };
+    day += n;
+    return item;
+  });
+
+  return { schedule, error: null, treeLog };
+}
+
+function mode4(userBudget, totalDays) {
+  const budget = userBudget === "no preference" ? "high" : userBudget;
+  const affordable = destinations.filter(dest =>
+    (budgetOrder[budget]||0) >= (budgetOrder[budgetLevel[dest]]||99)
+  ).map(dest => ({ city: dest, budget: budgetLevel[dest], daysNeeded: daysNeeded[dest]||2, attractions: attractions[dest]||[] }));
+
+  affordable.sort((a,b) => (budgetOrder[a.budget]||0) - (budgetOrder[b.budget]||0) || a.daysNeeded - b.daysNeeded);
+
+  const combos = [];
+  const used = new Set();
+  const names = affordable.map(x => x.city);
+  for (const item of affordable) {
+    if (used.has(item.city)) continue;
+    const combo = [item.city]; let days = item.daysNeeded; used.add(item.city);
+    for (const nb of (compatiblePairs[item.city]||[])) {
+      if (used.has(nb) || !names.includes(nb)) continue;
+      const nd = daysNeeded[nb]||2;
+      if (days + nd <= totalDays) { combo.push(nb); days += nd; used.add(nb); }
+    }
+    combos.push({ cities: combo, totalDays: days });
+  }
+
+  return { affordable, combos, showAll: userBudget === "no preference" };
+}
+
+// ──────────────────────────────────────────────
+// UI RENDERING
+// ──────────────────────────────────────────────
+let currentMode = 1;
+
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function renderForms() {
+  const fa = document.getElementById("form-area");
+
+  const commonFields = `
+    <div class="form-group">
+      <label>Budget</label>
+      <select id="f-budget">
+        <option value="no preference">No Preference</option>
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Travel Month</label>
+      <select id="f-month">
+        <option value="0">No Preference</option>
+        ${MONTH_NAMES.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("")}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Heat Tolerance</label>
+      <select id="f-heat">
+        <option value="no preference">No Preference</option>
+        <option value="low">Low</option>
+        <option value="moderate">Moderate</option>
+        <option value="high">High</option>
+        <option value="extreme">Extreme</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Beach Destination?</label>
+      <div class="radio-row">
+        <span class="radio-btn" data-group="beach" data-val="no preference" onclick="selectRadio(this)">Any</span>
+        <span class="radio-btn" data-group="beach" data-val="yes" onclick="selectRadio(this)">Yes</span>
+        <span class="radio-btn" data-group="beach" data-val="no" onclick="selectRadio(this)">No</span>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Trip Type</label>
+      <select id="f-triptype">
+        <option value="no preference">No Preference</option>
+        ${allTripTypes.map(t=>`<option value="${t}">${toTitle(t)}</option>`).join("")}
+      </select>
+    </div>
+  `;
+
+  if (currentMode === 1) {
+    fa.innerHTML = `
+      <div class="form-grid">
+        ${commonFields}
+        <div class="form-group span-full" style="grid-column:1/-1;margin-top:.5rem">
+          <button class="btn-primary" onclick="runMode1()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Find Destinations
+          </button>
+        </div>
+      </div>`;
+  } else if (currentMode === 2) {
+    fa.innerHTML = `
+      <div class="form-grid">
+        ${commonFields}
+        <div class="form-group span-full">
+          <label>Cities to Check</label>
+          <textarea id="f-cities" placeholder="e.g. cairo, luxor, dahab  (comma-separated)"></textarea>
+        </div>
+        <div class="form-group span-full">
+          <button class="btn-primary" onclick="runMode2()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            Check Cities
+          </button>
+        </div>
+      </div>`;
+  } else if (currentMode === 3) {
+    fa.innerHTML = `
+      <div class="form-grid">
+        ${commonFields}
+        <div class="form-group">
+          <label>Total Days</label>
+          <input type="number" id="f-days" min="1" max="60" value="7" placeholder="7">
+        </div>
+        <div class="form-group span-full">
+          <button class="btn-primary" onclick="runMode3()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Build Itinerary
+          </button>
+        </div>
+      </div>`;
+  } else if (currentMode === 4) {
+    fa.innerHTML = `
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Your Budget</label>
+          <select id="f-budget4">
+            <option value="no preference">No Preference (Show All)</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Total Days</label>
+          <input type="number" id="f-days4" min="1" max="60" value="7" placeholder="7">
+        </div>
+        <div class="form-group span-full">
+          <button class="btn-primary" onclick="runMode4()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            Explore Budget
+          </button>
+        </div>
+      </div>`;
+  }
+
+  // initialise radio buttons
+  document.querySelectorAll('.radio-btn[data-val="no preference"]').forEach(b => b.classList.add("selected"));
+}
+
+function selectRadio(el) {
+  const group = el.dataset.group;
+  document.querySelectorAll(`.radio-btn[data-group="${group}"]`).forEach(b => b.classList.remove("selected"));
+  el.classList.add("selected");
+}
+
+function getPrefs() {
+  return {
+    budget:        document.getElementById("f-budget")?.value || "no preference",
+    monthNum:      parseInt(document.getElementById("f-month")?.value)||0 || null,
+    heatTolerance: document.getElementById("f-heat")?.value || "no preference",
+    wantsBeach:    document.querySelector('.radio-btn[data-group="beach"].selected')?.dataset.val || "no preference",
+    tripType:      document.getElementById("f-triptype")?.value || "no preference",
+  };
+}
+
+// ── TREE LOG WIDGET ──
+function treeWidget(lines) {
+  const id = "tree-" + Math.random().toString(36).slice(2);
+  return `
+    <button class="tree-toggle" onclick="document.getElementById('${id}').classList.toggle('tree-hidden')">
+      ▸ Show / Hide reasoning tree
+    </button>
+    <div class="tree-box tree-hidden" id="${id}">${lines.join("\n")}</div>`;
+}
+
+// ── CARD helpers ──
+function checkChips(checks) {
+  const labels = { budget:"Budget", season:"Season", heat:"Heat", beach:"Beach", trip_type:"Trip Type" };
+  return `<div class="check-row">${Object.entries(checks).map(([k,v])=>`
+    <span class="check-chip ${v?"chip-pass":"chip-fail"}">${v?"✓":"✗"} ${labels[k]}</span>`).join("")}</div>`;
+}
+function attrList(list, max=5) {
+  return `<p class="card-section-title">Top Attractions</p><ul class="attr-list">${list.slice(0,max).map(a=>`<li>${a}</li>`).join("")}</ul>`;
+}
+function packTags(list) {
+  return `<p class="card-section-title">Pack</p><div class="pack-row">${list.map(p=>`<span class="pack-tag">${p}</span>`).join("")}</div>`;
+}
+
+// ──────────────────────────────────────────────
+// RUN MODES
+// ──────────────────────────────────────────────
+function runMode1() {
+  const prefs = getPrefs();
+  const { results, treeLog, matchType } = mode1(prefs);
+  const res = document.getElementById("results");
+
+  if (!results.length) {
+    res.innerHTML = `<div class="empty-state">No destinations matched within 2 failed criteria.<br>Try adjusting your preferences.</div>`;
+    return;
+  }
+
+  const isPerfect = matchType === "perfect";
+  const headingLabel = isPerfect ? "Perfect <em>Matches</em>" : `Closest <em>Matches</em>`;
+
+  const cards = results.map(r => {
+    const badge = r.failCount === 0
+      ? `<span class="card-badge badge-ok">Perfect Match</span>`
+      : `<span class="card-badge badge-no">${r.failCount} issue${r.failCount>1?"s":""}: ${r.failedRules.join(", ")}</span>`;
+    return `
+      <div class="card ${r.failCount>0?"invalid":""}">
+        <div class="card-city">${toTitle(r.city)}</div>
+        ${badge}
+        ${checkChips(r.checks)}
+        ${attrList(r.attractions)}
+        ${packTags(r.pack)}
+      </div>`;
+  }).join("");
+
+  res.innerHTML = `
+    <h2 class="results-heading">${headingLabel}</h2>
+    ${treeWidget(treeLog)}
+    <div class="card-grid">${cards}</div>`;
+}
+
+function runMode2() {
+  const prefs = getPrefs();
+  const raw = document.getElementById("f-cities").value.trim();
+  if (!raw) { alert("Please enter at least one city."); return; }
+  const cityList = raw.split(",").map(c => c.trim().toLowerCase().replace(/\s+/g,"_")).filter(Boolean);
+  const { results, treeLog } = mode2(cityList, prefs);
+  const res = document.getElementById("results");
+
+  const cards = results.map(r => {
+    if (!r.valid && r.error) {
+      return `<div class="card invalid">
+        <div class="card-city">${toTitle(r.city)}</div>
+        <span class="card-badge badge-no">Unknown City</span>
+        <p style="font-size:.83rem;color:var(--text-muted)">Not in knowledge base.</p>
+      </div>`;
+    }
+    const ok = r.valid;
+    const badge = ok
+      ? `<span class="card-badge badge-ok">Perfect Match</span>`
+      : r.failCount <= 2
+        ? `<span class="card-badge badge-no">Close — ${r.failCount} issue${r.failCount>1?"s":""}</span>`
+        : `<span class="card-badge badge-no">Not Recommended</span>`;
+    return `
+      <div class="card ${!ok?"invalid":""}">
+        <div class="card-city">${toTitle(r.city)}</div>
+        ${badge}
+        ${r.checks ? checkChips(r.checks) : ""}
+        ${r.attractions ? attrList(r.attractions) : ""}
+        ${r.pack ? packTags(r.pack) : ""}
+      </div>`;
+  }).join("");
+
+  res.innerHTML = `
+    <h2 class="results-heading">City <em>Analysis</em></h2>
+    ${treeWidget(treeLog)}
+    <div class="card-grid">${cards}</div>`;
+}
+
+function runMode3() {
+  const prefs = getPrefs();
+  const totalDays = parseInt(document.getElementById("f-days").value)||7;
+  const { schedule, error, treeLog } = mode3(prefs, totalDays);
+  const res = document.getElementById("results");
+
+  if (error || !schedule.length) {
+    res.innerHTML = `${treeWidget(treeLog)}<div class="empty-state">${error || "No itinerary could be built. Try more days or broader preferences."}</div>`;
+    return;
+  }
+
+  const totalUsed = schedule.reduce((s,item) => s + (daysNeeded[item.city]||2), 0);
+  const cards = schedule.map((item, idx) => `
+    <div class="itin-card" style="animation-delay:${idx*0.06}s">
+      <div class="itin-day">${item.dayRange}</div>
+      <div class="itin-body">
+        <div class="itin-city">${toTitle(item.city)}</div>
+        ${attrList(item.attractions, 4)}
+        ${packTags(item.pack)}
+      </div>
+    </div>`).join("");
+
+  res.innerHTML = `
+    <h2 class="results-heading">Your <em>Itinerary</em> <span style="font-size:1rem;font-family:'Jost',sans-serif;color:var(--text-muted);font-weight:300">${totalUsed} of ${totalDays} days planned</span></h2>
+    ${treeWidget(treeLog)}
+    <div class="itinerary-list">${cards}</div>`;
+}
+
+function runMode4() {
+  const userBudget = document.getElementById("f-budget4").value;
+  const totalDays  = parseInt(document.getElementById("f-days4").value)||7;
+  const { affordable, combos, showAll } = mode4(userBudget, totalDays);
+  const res = document.getElementById("results");
+
+  const levelPill = b => `<span class="level-pill level-${b}">${toTitle(b)}</span>`;
+
+  const tableRows = affordable.map(x => `
+    <tr>
+      <td class="city-name-cell">${toTitle(x.city)}</td>
+      <td>${levelPill(x.budget)}</td>
+      <td>${x.daysNeeded} day${x.daysNeeded>1?"s":""}</td>
+      <td style="font-size:.78rem;color:var(--text-muted)">${x.attractions.slice(0,2).join(", ")}</td>
+    </tr>`).join("");
+
+  const comboCards = combos.map((c,i) => `
+    <div class="combo-card" style="animation-delay:${i*0.05}s">
+      <div>
+        <div class="combo-cities">${c.cities.map(toTitle).join(" + ")}</div>
+      </div>
+      <div class="combo-days">${c.totalDays} day${c.totalDays>1?"s":""}</div>
+    </div>`).join("");
+
+  res.innerHTML = `
+    <h2 class="results-heading">${showAll ? "All <em>Destinations</em>" : `<em>${toTitle(userBudget)}</em> Budget Destinations`}</h2>
+    ${showAll ? `<p style="font-size:.83rem;color:var(--text-muted);margin-bottom:1.2rem">Showing all ${affordable.length} destinations (no budget filter applied).</p>` : ""}
+    <table class="budget-table">
+      <thead><tr><th>City</th><th>Budget Level</th><th>Days Needed</th><th>Highlights</th></tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+    ${combos.length ? `<div class="combo-section">
+      <h2 class="results-heading" style="margin-bottom:1rem">Suggested <em>Combinations</em> <span style="font-size:1rem;font-family:'Jost',sans-serif;color:var(--text-muted);font-weight:300">within ${totalDays} days</span></h2>
+      ${comboCards}
+    </div>` : ""}`;
+}
+
+// ──────────────────────────────────────────────
+// INIT
+// ──────────────────────────────────────────────
+document.querySelectorAll(".mode-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".mode-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentMode = parseInt(tab.dataset.mode);
+    document.getElementById("results").innerHTML = "";
+    renderForms();
+  });
+});
+
+renderForms();
+</script>
 </body>
 </html>
